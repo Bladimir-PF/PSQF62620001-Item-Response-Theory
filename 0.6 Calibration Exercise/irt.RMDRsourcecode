@@ -1,0 +1,236 @@
+---
+title: "IRT analysis"
+author: "YM"
+date: "1/1/2022"
+output: html_document
+---
+
+```{r setup, include=T}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+```{r setup_packages}
+library(ggplot2)
+library(lattice)
+library(stats4)
+library(difR)
+library(ltm)
+library(MASS)
+library(msm)
+library(xxIRT)
+path <- "/Users/ymcheryl/Documents/YM/Deb/"
+data <- read.fwf(paste0(path,"irt_data.dat"),widths = c(4, rep(1, 101)))
+data <- data[,1:101]
+colnames(data) <- c("candidate_Id",paste0("math",seq(1,60)),paste0("reading",seq(1,40)))
+```
+
+## 3PL calibration on 2000 examinees (0001 to 2000 examinees), 60 item math using something in R
+```{r}
+tmp <- data[1:2000,paste0("math",seq(1,60))]
+par_2000p_60m <-itemParEst(tmp,model = "3PL",engine = "ltm")
+write.csv(par_2000p_60m,paste0(path,"par_2000p_60math.csv"))
+par_2000p_60m_2pl <-itemParEst(tmp,model = "2PL",engine = "ltm")
+write.csv(par_2000p_60m_2pl,paste0(path,"par_2000p_60math_2pl.csv"))
+```
+
+## 3PL calibration on 1000 (2001-3000) examinees,  60 item math
+```{r}
+tmp <- data[1001:2000,paste0("math",seq(1,60))]
+par_1000p_60m <-itemParEst(tmp,model = "3PL",engine = "ltm")
+
+par_1000p_60m_2pl <-itemParEst(tmp,model = "2PL",engine = "ltm")
+```
+
+### comparing item parameter using different sample size
+
+```{r}
+plot(par_2000p_60m[,"a"],par_1000p_60m[,"a"],main = "a parameter comparison: 1000 vs 2000")
+abline(0,1,col="red")
+```
+
+```{r}
+plot(par_2000p_60m[,"b"],par_1000p_60m[,"b"],main = "b parameter comparison: 1000 vs 2000")
+abline(0,1,col="red")
+```
+
+
+```{r}
+plot(par_2000p_60m[,"c"],par_1000p_60m[,"c"],main = "c parameter comparison: 1000 vs 2000")
+abline(0,1,col="red")
+```
+
+
+```{r}
+plot(par_2000p_60m[,"se(a)"],par_1000p_60m[,"se(a)"],main = "se(a) parameter comparison: 1000 vs 2000")
+abline(0,1,col="red")
+```
+```{r}
+plot(par_2000p_60m[,"se(b)"],par_1000p_60m[,"se(b)"],main = "se(b) parameter comparison: 1000 vs 2000")
+abline(0,1,col="red")
+```
+
+
+```{r}
+plot(par_2000p_60m[,"se(c)"],par_1000p_60m[,"se(c)"],main = "se(c) parameter comparison: 1000 vs 2000")
+abline(0,1,col="red")
+```
+
+## miskey cases
+
+```{r}
+# Change 0/1 on one random item on math (change 1 to 8, 0 to 1, 8 to 0 or however you want). 
+# Calibrate it using same code/2000 examinees as above and see if it calibrates and what item stats look like (hopefully bad!) 
+# I would like whatever output shows this item is “bad”
+tmp <- data[1:2000,c("candidate_Id",paste0("math",seq(1,60)))]
+tmp$candidate_Id <- stringr::str_pad(tmp$candidate_Id,4,pad = "0")
+for(i in paste0("math",8)){
+  a <- ifelse(tmp[,i]==1,0,1)
+  tmp[,i]<- a
+}
+write.table(tmp,"irt_miskeyed.dat",col.names = F, row.names = F, sep = "",quote = F)
+
+tmp <- tmp[,-1]
+
+par_2000p_60m_bad <-itemParEst(tmp,model = "3PL",engine = "ltm")
+par_2000p_60m_2pl_bad <-itemParEst(tmp,model = "2PL",engine = "ltm")
+
+```
+
+### 3PL-based parameter comparision
+```{r}
+plot(par_2000p_60m[,"a"],par_2000p_60m_bad[,"a"], main = "3pl-based a parameter")
+abline(0,1,col="red")
+```
+
+```{r}
+plot(par_2000p_60m[,"b"],par_2000p_60m_bad[,"b"], main = "3pl-based b parameter")
+abline(0,1,col="red")
+```
+
+
+```{r}
+plot(par_2000p_60m[,"c"],par_2000p_60m_bad[,"c"], main = "3pl-based c parameter")
+abline(0,1,col="red")
+```
+
+### 2PL-based parameter comparision
+
+```{r}
+plot(par_2000p_60m_2pl[,"a"],par_2000p_60m_2pl_bad[,"a"], main = "2pl-based a parameter")
+abline(0,1,col="red")
+```
+
+
+```{r}
+plot(par_2000p_60m_2pl[,"b"],par_2000p_60m_2pl_bad[,"b"], main = "2pl-based b parameter")
+abline(0,1,col="red")
+```
+
+
+### 3PL results
+
+```{r}
+
+# Score 20 examinees using the item parameters from #1 above and their 0/1s. 
+# 19 should be from 3001 to 6000—any 19- and use their math 0/1s. 
+# For the 20th, pick another simulee in that range BUT use the last 60 0/1s . 
+# Because this examinee is scored with ‘wrong’ item parameters, fit should look BAD
+
+tmp <- data[3001:3020,paste0("math",seq(1,60))]
+
+theta <- model_3pl_eap_scoring(u = as.matrix(tmp), a = par_2000p_60m[,1],
+                       b = par_2000p_60m[,2],
+                       c = par_2000p_60m[,3],D=1)
+
+theta_good <- data.frame(theta = theta$t, se = theta$sd)
+
+
+tmp1 <- data[3001:3019,paste0("math",seq(1,60))]
+tmp3 <- data[3020,42:101]
+colnames(tmp1)<- paste0("I",seq(1,60))
+colnames(tmp3)<- paste0("I",seq(1,60))
+
+tmp_bad <- rbind(tmp1,tmp3)
+colnames(tmp_bad)<- NULL
+rownames(tmp_bad)<- NULL
+theta <- model_3pl_eap_scoring(u = as.matrix(tmp_bad), a = par_2000p_60m[,1],
+                               b = par_2000p_60m[,2],
+                               c = par_2000p_60m[,3],D=1)
+
+theta_bad <- data.frame(theta = theta$t, se = theta$sd)
+```
+
+```{r}
+theta_bad$id <- as.character(seq(1,20))
+theta_sum <- cbind(theta_good, theta_bad)
+colnames(theta_sum) <- c("theta_good","se_good","theta_bad","se_bad","id")
+
+ggplot(theta_sum, aes(x = theta_good, y = theta_bad,label = id, colour = factor(id))) +
+  geom_point()+geom_label() +theme(legend.position = "none")+
+  geom_abline(intercept = 0, slope = 1) +
+  ggtitle("3PL: theta comparison")
+
+ggplot(theta_sum, aes(x = se_good, y = se_bad,label = id, colour = factor(id))) +
+  geom_point()+geom_label() +theme(legend.position = "none")+
+  geom_abline(intercept = 0, slope = 1) +
+  ggtitle("3PL: se comparison")
+
+
+write.csv(theta_sum, paste0(path,"theta_comparison_3PL.csv"),row.names = F)
+
+```
+
+
+### 2PL results
+
+```{r eval=FALSE}
+
+# Score 20 examinees using the item parameters from #1 above and their 0/1s. 
+# 19 should be from 3001 to 6000—any 19- and use their math 0/1s. 
+# For the 20th, pick another simulee in that range BUT use the last 60 0/1s . 
+# Because this examinee is scored with ‘wrong’ item parameters, fit should look BAD
+tmp <- data[3001:3020,paste0("math",seq(1,60))]
+
+theta <- model_3pl_eap_scoring(u = as.matrix(tmp), a = par_2000p_60m_2pl[,1],
+                       b = par_2000p_60m_2pl[,2],
+                       c = 0,D=1)
+
+theta_good <- data.frame(theta = theta$t, se = theta$sd)
+
+
+tmp1 <- data[3001:3019,paste0("math",seq(1,60))]
+tmp3 <- data[3020,42:101]
+colnames(tmp1)<- paste0("I",seq(1,60))
+colnames(tmp3)<- paste0("I",seq(1,60))
+
+tmp_bad <- rbind(tmp1,tmp3)
+colnames(tmp_bad)<- NULL
+rownames(tmp_bad)<- NULL
+theta <- model_3pl_eap_scoring(u = as.matrix(tmp_bad), a = par_2000p_60m_2pl[,1],
+                               b = par_2000p_60m_2pl[,2],
+                               c = 0,D=1)
+
+theta_bad <- data.frame(theta = theta$t, se = theta$sd)
+```
+
+```{r eval=FALSE}
+theta_bad$id <- as.character(seq(1,20))
+theta_sum <- cbind(theta_good, theta_bad)
+colnames(theta_sum) <- c("theta_good","se_good","theta_bad","se_bad","id")
+
+ggplot(theta_sum, aes(x = theta_good, y = theta_bad,label = id, colour = factor(id))) +
+  geom_point()+geom_label() +theme(legend.position = "none")+
+  geom_abline(intercept = 0, slope = 1) +
+  ggtitle("2PL: theta comparison")
+
+ggplot(theta_sum, aes(x = se_good, y = se_bad,label = id, colour = factor(id))) +
+  geom_point()+geom_label() +theme(legend.position = "none")+
+  geom_abline(intercept = 0, slope = 1) +
+  ggtitle("2PL: se comparison")
+
+
+write.csv(theta_sum, paste0(path,"theta_comparison_2PL.csv"),row.names = F)
+
+```
