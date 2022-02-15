@@ -10,19 +10,9 @@ knitr::opts_chunk$set(message = FALSE, fig.width = 5, fig.height = 3)
 ```
 
 ```{r packages, message=FALSE}
-ipak <- function(pkg){
-new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
-if (length(new.pkg)) 
-    install.packages(new.pkg, dependencies = TRUE)
-sapply(pkg, require, character.only = TRUE)}
-
-# usage
-packages <- c("ggplot2", "plyr", "reshape2", "RColorBrewer", "scales", "grid")
-ipak(packages)
-
 library(ggplot2)
 library(tidyverse)
-library(dplyer)
+library(dplyr)
 library(lattice)
 library(stats4)
 library(difR)
@@ -34,6 +24,118 @@ library(mirt)
 library(shiny)
 library(birtr)
 ```
+
+```{r data.set}
+setwd('C:/Users/Lenovo/OneDrive - University of Iowa/PhD portfolio/2. Courses/Spring 2022/PSQF62620001 Item Response Theory (Deborah Harris)/PSQF62620001-Item-Response-Theory/0.6 Calibration Exercise/')
+data <- read.fwf("irt_data for calibration.txt", widths = c(4, rep(1,101)))
+#data <- data[,1:101]
+colnames(data) <- c('candidate', paste0('math', seq(1,60)), paste('read', seq(1,40)), 'Group_ID')
+```
+
+## 3PL calibration on 1000 examinees (rbind 0001 - 1000 examinees), 30 items math
+```{r 3PL.2000math}
+data1 <- data[1:1000, paste0("math",seq(1,30))]
+m1 <- itemParEst(data1, model = "3PL", engine = "ltm")
+m1 = data.frame(m1)
+
+m3 = mirt(data1, 1, itemtype = '3PL')
+m3_coef = data.frame(coef(m3))
+write.csv(me_coef, 'm3_coef.csv')
+m3.1 = read_csv2('m3_coef.csv')
+data.frame(m3.1)
+m3.1$u = NULL
+coef(m3)
+  
+#fit rasch model (i.e., 1PL)
+IRTrasch <- rasch(IQbin, IRT.param = TRUE,constraint = cbind(length(IQbin) + 1, 1))
+
+#fit 2PL model
+IRT2pl <- ltm(data1~z1,IRT.param = TRUE)
+
+#fit 3PL model
+IRT3pl <- tpm(data1,type="latent.trait",IRT.param = TRUE)
+m2 = data.frame(coef(IRT3pl, prob = TRUE))
+
+names(m2)
+m1.1 = dplyr::select(m1, a, b, c)
+m2.1 = m2%>%
+  dplyr::rename(c = Gussng, b = Dffclt, a = Dscrmn)%>%
+  dplyr::select(a, b, c)
+
+anova(IRT2pl, IRT3pl)
+
+
+
+
+
+
+
+#return item parameters for each model
+coef(IRTrasch, prob = TRUE)
+coef(IRT2pl, prob = TRUE)
+coef(IRT3pl, prob = TRUE)
+
+#compare model fit
+anova(IRTrasch,IRT2pl)
+anova(IRT2pl,IRT3pl)
+
+#return goodness of fit of the items with chi-square test
+item.fit(IRT2pl)
+
+#Plot ICC's for each item
+plot(IRT3pl,type="ICC")
+
+#Plot ICC's for one item
+plot(IRT3pl,type="ICC", items = 1)
+
+#Plot Test Information Function 
+plot(IRT3pl,type="IIC",items=0) 
+
+#ability estimates
+est<-factor.scores(IRT3pl)
+
+est$score.dat$z1[1:5]
+
+#test undimensionality
+#first, fit 2PL model with 2 factors
+IRT2pl_2 <- ltm(IQbin~z1+z2)
+
+#second, run liklihood ratio test comparing 1 to 2 factor models
+anova(IRT2pl,IRT2pl_2)
+
+# the engine for estimating the 1PL model, either "ltm" (default) or "lme4"
+#write.csv(par_2000p_60m_3PL,paste0(path,"par_2000p_60m_3PL.csv"))
+write.csv(m_2000p_60math_3PL, file = "m_2000p_60math_3PL.csv")
+```
+
+## 3PL calibration on 2000 examinees (rbind 2001 - 4000 examinees), 60 item math
+```{r}
+df_2000p2_60math_3PL <- data[2001:4000, paste0("math",seq(1,60))]
+m_2000p2_60math_3PL <- itemParEst(df_2000p2_60math_3PL, model = "3PL", engine = "ltm")
+# the engine for estimating the 1PL model, either "ltm" (default) or "lme4"
+#write.csv(par_2000p_60m_3PL,paste0(path,"par_2000p_60m_3PL.csv"))
+write.csv(m_2000p2_60math_3PL, file = "m_2000p2_60math_3PL.csv")
+```
+
+## 2PL calibration on 2000 examinees (rbind 0001 - 2000 examinees), 60 item math
+```{r 2PL.2000math}
+m_2000p_60math_2PL <- itemParEst(df_2000p2_60math_3PL, model = "2PL",engine = "ltm")
+#write.csv(m_2000p_60math_2PL,paste0(path,"m_2000p_60math_2PL.csv"))
+write.csv(m_2000p_60math_2PL, file = "m_2000p_60math_2PL.csv")
+```
+
+---
+
+## 3PL calibration on 2000 examinees (rbind 0001 - 2000 examinees), 60 item math
+```{r 3PL.2000math}
+df_2000p_60math_3PL <- data[1:2000, paste0("math",seq(1,60))]
+m_2000p_60math_3PL <- itemParEst(df_2000p_60math_3PL, model = "3PL", engine = "ltm")
+# the engine for estimating the 1PL model, either "ltm" (default) or "lme4"
+#write.csv(par_2000p_60m_3PL,paste0(path,"par_2000p_60m_3PL.csv"))
+write.csv(m_2000p_60math_3PL, file = "m_2000p_60math_3PL.csv")
+```
+
+---
 
 ```{r}
 itemplot(shiny = T)
@@ -47,20 +149,10 @@ iccplot(a = .5621, b = 2.6633)
 iccplot(a = 1.0286, b = 1.1785)
 ```
 
-```{r data}
-path <- "C:/Users/Lenovo/OneDrive - University of Iowa/PhD portfolio/2. Courses/Spring 2022/PSQF62620001 Item Response Theory (Deborah Harris)/0.6 Calibration Exercise/"
-data <- read.fwf(paste0(path,"irt_data for calibration.txt"),widths = c(4, rep(1, 101)))
-data <- data[,1:101]
-colnames(data) <- c("candidate_Id",paste0("math",seq(1,60)),paste0("reading",seq(1,40)))
-```
 
-## 3PL calibration on 2000 examinees (rbind 0001 - 2000 examinees), 60 item math
-```{r 3PL.2000math}
-tmp2000m <- data[1:2000,paste0("math",seq(1,60))]
-par_2000p_60m_3PL <- itemParEst(tmp2000m, model = "3PL", engine = "ltm")
-# the engine for estimating the 1PL model, either "ltm" (default) or "lme4"
-write.csv(par_2000p_60m_3PL,paste0(path,"par_2000p_60m_3PL.csv"))
-```
+
+
+
 
 ## 3PL calibration on 1000 examinees (rbind 1001 - 2000),  60 item math
 ```{r 3PL.1000math}
@@ -80,16 +172,6 @@ write.csv(par_2000p_60m_2pl,paste0(path,"par_2000p_60math_2pl.csv"))
 par_1000p_60m_2pl <-itemParEst(tmp1000m,model = "2PL",engine = "ltm")
 write.csv(par_1000p_60m_2pl, paste0(path, 'par_1000p_60m_2pl.csv'))
 ```
-
-```{r}
-out <- unidimTest(rasch(tmp2000m))
-out
-plot(out, type = "b", pch = 1:2)
-legend("topright", c("Real Data", "Average Simulated Data"), lty = 1, 
-    pch = 1:2, col = 1:2, bty = "n")
-```
-
-
 
 ----
 
