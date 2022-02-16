@@ -65,11 +65,6 @@ m2.1 = m2%>%
 anova(IRT2pl, IRT3pl)
 
 
-
-
-
-
-
 #return item parameters for each model
 coef(IRTrasch, prob = TRUE)
 coef(IRT2pl, prob = TRUE)
