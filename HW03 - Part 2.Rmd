@@ -1,0 +1,111 @@
+---
+title: "IRT calibration"
+author: "Mubarak Mojoyinola, Geraldo Padilla"
+date: "03-22-2022"
+output: html_document
+---
+
+```{r, include=FALSE, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, fig.width = 5, fig.height = 3)
+```
+
+```{r, message=FALSE, include=FALSE}
+library(tidyverse)
+library(difR)
+library(ltm)
+library(mirt)
+```
+
+```{r}
+setwd('C:/Users/Lenovo/OneDrive - University of Iowa/PhD portfolio/2. Courses/Spring 2022/PSQF62620001 Item Response Theory (Deborah Harris)/PSQF62620001-Item-Response-Theory/0.6 Calibration Exercise/')
+data <- read.fwf("irt_data for calibration.txt", widths = c(4, rep(1,101)))
+colnames(data) <- c('candidate', paste0('math', seq(1,60)), paste('read', seq(1,40)), 'Group_ID')
+```
+
+# Example 1: using single group 
+```{r, warning=FALSE, message=FALSE}
+data1 <- data[1:2000, paste0("math",seq(1,60))]
+data1_A <- data1[,c(seq(1,60, 2))]
+data1_B <- data1[,c(seq(2,60, 2))]
+
+m1_A <- itemParEst(data1_A, model = "3PL", engine = "ltm")
+m1_B <- itemParEst(data1_B, model = "3PL", engine = "ltm")
+
+m1_A_df = data.frame(m1_A)
+m1_B_df = data.frame(m1_B)
+
+head(m1_A_df[, 1:3])
+head(m1_B_df[, 1:3])
+```
+
+# Example 2: using random groups
+```{r, warning=FALSE, message=FALSE}
+data2 <- data[1:4000, paste0("math",seq(1,60))]
+data2_A <- data2[1:2000,c(seq(1,60, 2))]
+data2_B <- data2[2001:4000,c(seq(2,60, 2))]
+
+m2_A <- itemParEst(data2_A, model = "3PL", engine = "ltm")
+m2_B <- itemParEst(data2_B, model = "3PL", engine = "ltm")
+
+m2_A_df = data.frame(m2_A)
+m2_B_df = data.frame(m2_B)
+
+head(m2_A_df[, 1:3])
+head(m2_B_df[, 1:3])
+```
+
+# Example 3: using concurrent calibration (Common items)
+```{r, warning=FALSE, message=FALSE}
+data2 <- data[1:4000, paste0("math",seq(1,60))]
+data3_A <- data2[1:2000,c(seq(1,16), seq(17, 60, 2))]
+data3_B <- data2[2001:4000,c(seq(1,16), seq(18, 60, 2))]
+
+m3_A <- itemParEst(data3_A, model = "3PL", engine = "ltm")
+m3_B <- itemParEst(data3_B, model = "3PL", engine = "ltm")
+
+m3_A_df = data.frame(m3_A)
+m3_B_df = data.frame(m3_B)
+
+head(m3_A_df[, 1:3])
+head(m3_B_df[, 1:3])
+```
+
+# Example 4: using separate calibration (Common items)
+```{r, warning=FALSE, message=FALSE}
+data2 <- data[1:4000, paste0("math",seq(1,60))]
+data3_A <- data2[1:2000,c(seq(1,16), seq(17, 60, 2))]
+data3_B <- data2[2001:4000,c(seq(1,16), seq(18, 60, 2))]
+
+m3_A <- itemParEst(data3_A, model = "3PL", engine = "ltm")
+m3_B <- itemParEst(data3_B, model = "3PL", engine = "ltm")
+
+m3_A_df = data.frame(m3_A)
+m3_B_df = data.frame(m3_B)
+```
+
+Using the Mean-Sigma approach, we can transform the item parameters from Form B into form B scale
+```{r, warning=FALSE, message=FALSE}
+m_sd_A <- m3_A_df[1:16,]%>%
+  dplyr::select(a, b)%>%
+  summarise(
+    mean_a = mean(a),
+    sd_a = sd(a),
+    mean_b = mean(b),
+    sd_b = sd(b))
+
+m_sd_B <- m3_B_df[1:16,]%>%
+  dplyr::select(a, b)%>%
+  summarise(
+    mean_a = mean(a),
+    sd_a = sd(a),
+    mean_b = mean(b),
+    sd_b = sd(b))
+
+A = m_sd_B$sd_b/m_sd_A$sd_b
+B = m_sd_B$mean_b - (A * m_sd_A$mean_b)
+
+m3_A_df_SC <- m3_A_df[,1:3]%>%
+  mutate(
+    new_a = a/A,
+    new_b = A*b + B)
+```
